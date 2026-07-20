@@ -20,11 +20,14 @@ ENV PYTHONUNBUFFERED=1
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create cache directories
-RUN mkdir -p /cache/huggingface /cache/docling
+# Copy application source code into container
+COPY . /app
 
-# Expose port
+# Create cache and upload directories
+RUN mkdir -p /cache/huggingface /cache/docling /app/uploads
+
+# Expose default port
 EXPOSE 8000
 
-# Start FastAPI application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Start FastAPI application dynamically handling Render PORT env var
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
