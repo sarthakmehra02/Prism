@@ -68,6 +68,22 @@ def health_check(db: Session = Depends(get_db)):
         "database_url_present": bool(os.environ.get("DATABASE_URL"))
     }
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global unhandled exception: {exc}", exc_info=True)
+    origin = request.headers.get("origin", "*")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "error": str(exc)},
+        headers={
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true"
+        }
+    )
+
 # Schema definitions
 class QueryRequest(BaseModel):
     query: str
