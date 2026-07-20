@@ -2,10 +2,10 @@ from pydantic_settings import BaseSettings
 from pydantic import Field
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = Field(..., env="DATABASE_URL")
-    NVIDIA_API_KEY: str = Field(..., env="NVIDIA_API_KEY")
+    DATABASE_URL: str = Field("postgresql://postgres:postgres@prism-db:5432/prism", env="DATABASE_URL")
+    NVIDIA_API_KEY: str = Field("", env="NVIDIA_API_KEY")
     NVIDIA_BASE_URL: str = Field("https://integrate.api.nvidia.com/v1", env="NVIDIA_BASE_URL")
-    NVIDIA_MODEL: str = Field("meta/llama-3.3-70b-instruct", env="NVIDIA_MODEL")
+    NVIDIA_MODEL: str = Field("meta/llama-3.1-8b-instruct", env="NVIDIA_MODEL")
     NVIDIA_VISION_MODEL: str = Field("meta/llama-3.2-11b-vision-instruct", env="NVIDIA_VISION_MODEL")
     
     # Caches

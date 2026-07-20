@@ -2,35 +2,42 @@ import os
 import re
 import logging
 import base64
-import fitz
 from typing import List, Dict, Any, Optional
-from docling.datamodel.document import ConversionResult
-from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.document_converter import DocumentConverter, PdfFormatOption
-from openai import OpenAI
 from app.config import settings
 
 logger = logging.getLogger("prism.parser")
 
 class DocumentParser:
     def __init__(self):
-        # Configure docling options
-        pipeline_options = PdfPipelineOptions()
-        # We can enable OCR if needed, but default is layout analysis
-        pipeline_options.do_ocr = True
-        pipeline_options.do_table_structure = True
-        
-        self.converter = DocumentConverter(
-            format_options={
-                "pdf": PdfFormatOption(pipeline_options=pipeline_options)
-            }
-        )
-
-        self.openai_client = OpenAI(
-            base_url=settings.NVIDIA_BASE_URL,
-            api_key=settings.NVIDIA_API_KEY
-        )
+        self.converter = None
+        self.openai_client = None
         self.vision_model = settings.NVIDIA_VISION_MODEL
+
+    def _get_converter(self):
+        if self.converter is None:
+            logger.info("Lazy-loading Docling DocumentConverter...")
+            from docling.datamodel.pipeline_options import PdfPipelineOptions
+            from docling.document_converter import DocumentConverter, PdfFormatOption
+            
+            pipeline_options = PdfPipelineOptions()
+            pipeline_options.do_ocr = True
+            pipeline_options.do_table_structure = True
+            
+            self.converter = DocumentConverter(
+                format_options={
+                    "pdf": PdfFormatOption(pipeline_options=pipeline_options)
+                }
+            )
+        return self.converter
+
+    def _get_openai_client(self):
+        if self.openai_client is None:
+            from openai import OpenAI
+            self.openai_client = OpenAI(
+                base_url=settings.NVIDIA_BASE_URL,
+                api_key=settings.NVIDIA_API_KEY
+            )
+        return self.openai_client
 
     def _describe_figure(self, fitz_doc, page_number: int, bbox: List[float], caption: Optional[str]) -> str:
         if not fitz_doc or not bbox:
@@ -38,6 +45,7 @@ class DocumentParser:
         
         try:
             # page_number in docling is 1-indexed, fitz is 0-indexed
+            import fitz
             page = fitz_doc.load_page(page_number - 1)
             page_height = page.rect.height
             
@@ -65,7 +73,8 @@ class DocumentParser:
                 prompt += f"\n\nContext / Caption of this figure: {caption}"
                 
             logger.info(f"Calling vision model {self.vision_model} to describe figure on page {page_number}...")
-            response = self.openai_client.chat.completions.create(
+            client = self._get_openai_client()
+            response = client.chat.completions.create(
                 model=self.vision_model,
                 messages=[
                     {
@@ -134,6 +143,7 @@ class DocumentParser:
         # Open PDF with PyMuPDF to extract figure images if they exist
         fitz_doc = None
         try:
+            import fitz
             fitz_doc = fitz.open(file_path)
         except Exception as fe:
             logger.warning(f"Could not open PDF with PyMuPDF for figure extraction: {fe}")
@@ -141,7 +151,8 @@ class DocumentParser:
         try:
             if progress_callback:
                 progress_callback("processing:Converting document layout...")
-            result: ConversionResult = self.converter.convert(file_path)
+            converter = self._get_converter()
+            result = converter.convert(file_path)
             doc = result.document
             
             if progress_callback:
