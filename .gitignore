@@ -1,0 +1,42 @@
+# Environment files & Secrets
+.env
+.env.local
+.env.production
+.env.staging
+.env.*
+service-account.json
+*.pem
+*.key
+
+# Backend & Python
+__pycache__/
+*.py[cod]
+*$py.class
+backend/uploads/*
+!backend/uploads/.gitkeep
+.venv/
+env/
+venv/
+ENV/
+
+# Frontend & Node
+node_modules/
+.next/
+out/
+build/
+dist/
+.vercel
+.pnp
+.pnp.js
+
+# OS & Debug
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+agent.md
+me.md
+PROGRESS.md
