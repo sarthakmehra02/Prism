@@ -6,8 +6,14 @@ import logging
 
 logger = logging.getLogger("prism.db")
 
+db_url = settings.DATABASE_URL
+connect_args = {}
+if "supabase" in db_url.lower() and "sslmode" not in db_url.lower():
+    connect_args["sslmode"] = "require"
+
 engine = create_engine(
-    settings.DATABASE_URL,
+    db_url,
+    connect_args=connect_args,
     pool_pre_ping=True,
     pool_recycle=300
 )
