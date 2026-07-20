@@ -24,7 +24,7 @@ app = FastAPI(title="Prism API", description="Multimodal Document Intelligence P
 # CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust for production
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
