@@ -24,7 +24,12 @@ app = FastAPI(title="Prism API", description="Multimodal Document Intelligence P
 # CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https?://.*",
+    allow_origins=[
+        "https://prism-nu-seven.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:8000",
+    ],
+    allow_origin_regex=r"https?://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

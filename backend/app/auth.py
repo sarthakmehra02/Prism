@@ -18,6 +18,8 @@ try:
     
     if service_account_json and service_account_json.strip():
         service_account_info = json.loads(service_account_json)
+        if "private_key" in service_account_info and isinstance(service_account_info["private_key"], str):
+            service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
         cred = credentials.Certificate(service_account_info)
         firebase_admin.initialize_app(cred)
         logger.info("Firebase Admin SDK initialized successfully from SERVICE_ACCOUNT_JSON env var.")
