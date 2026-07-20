@@ -14,6 +14,7 @@ from app.embeddings import EmbeddingClient
 from app.retriever import HybridRetriever
 from app.generator import AnswerGenerator
 from app.auth import get_current_user
+import firebase_admin
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -47,6 +48,25 @@ def startup_event():
 @app.get("/")
 def read_root():
     return {"status": "online", "message": "Welcome to Prism Multimodal Document Intelligence Platform"}
+
+@app.get("/api/health")
+def health_check(db: Session = Depends(get_db)):
+    firebase_active = bool(firebase_admin._apps)
+    db_ok = False
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception as e:
+        logger.error(f"Health check DB failed: {e}")
+        
+    return {
+        "status": "healthy" if (firebase_active and db_ok) else "degraded",
+        "firebase_active": firebase_active,
+        "database_connected": db_ok,
+        "service_account_env_present": bool(os.environ.get("SERVICE_ACCOUNT_JSON")),
+        "database_url_present": bool(os.environ.get("DATABASE_URL"))
+    }
 
 # Schema definitions
 class QueryRequest(BaseModel):
