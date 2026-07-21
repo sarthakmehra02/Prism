@@ -25,7 +25,15 @@ import {
   Check,
   X,
   PlusCircle,
-  Copy
+  Copy,
+  MoreHorizontal,
+  Search,
+  PanelLeftClose,
+  PanelLeft,
+  Folder,
+  SquarePen,
+  ChevronDown,
+  ShoppingBag
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
@@ -92,6 +100,12 @@ export default function PrismDashboard() {
   const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [deletingDocId, setDeletingDocId] = useState<number | null>(null);
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
+  // ChatGPT style UI states
+  const [deleteModal, setDeleteModal] = useState<{ type: "session" | "doc"; id: string | number; name: string } | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [showAllProjects, setShowAllProjects] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeSessionIdRef = useRef<string | null>(null);
@@ -354,29 +368,74 @@ export default function PrismDashboard() {
     }
   };
 
-  // Phase 10: Download chat as Markdown
+  // Download chat as Markdown
   const handleDownloadMarkdown = () => {
     if (messages.length === 0) return;
     const lines = messages.map(m => {
-      const role = m.role === "user" ? "**You**" : "**Prism**";
+      const role = m.role === "user" ? "**You**" : "**Prism AI**";
       const cites = m.citations && m.citations.length > 0
-        ? `\n\n> Sources: ${m.citations.map(c => `${c.document_name} (p.${c.page_number})`).join(", ")}`
+        ? `\n\n> **Sources:** ${m.citations.map(c => `${c.document_name} (p.${c.page_number})`).join(", ")}`
         : "";
-      return `${role}\n\n${m.content}${cites}`;
+      return `### ${role}\n\n${m.content}${cites}`;
     });
-    const markdown = `# Prism Chat Export\n\n${lines.join("\n\n---\n\n")}`;
     const sessionTitle = sessions.find(s => s.id === activeSessionId)?.title || "chat";
+    const markdown = `# Prism Chat: ${sessionTitle}\n*Exported on ${new Date().toLocaleDateString()}*\n\n---\n\n${lines.join("\n\n---\n\n")}`;
     const slug = sessionTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "chat";
-    const blob = new Blob([markdown], { type: "text/markdown" });
+    
+    const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `prism-${slug}-${new Date().toISOString().slice(0, 10)}.md`;
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `prism-${slug}-${new Date().toISOString().slice(0, 10)}.md`;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 300);
+  };
+
+  // Export chat as PDF
+  const handleDownloadPDF = () => {
+    if (messages.length === 0) return;
+    const sessionTitle = sessions.find(s => s.id === activeSessionId)?.title || "Prism Chat";
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${sessionTitle} - Prism Export</title>
+        <style>
+          body { font-family: system-ui, -apple-system, sans-serif; padding: 30px; max-width: 800px; margin: auto; color: #111; line-height: 1.6; }
+          h1 { color: #059669; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
+          .message { margin-bottom: 24px; padding: 16px; border-radius: 12px; background: #f9fafb; border: 1px solid #e5e7eb; }
+          .user { background: #ecfdf5; border-color: #a7f3d0; }
+          .role { font-weight: bold; margin-bottom: 6px; color: #047857; font-size: 14px; }
+          .user .role { color: #065f46; }
+          .sources { margin-top: 10px; font-size: 12px; color: #4b5563; background: #fff; padding: 8px; border-radius: 6px; border: 1px solid #e5e7eb; }
+        </style>
+      </head>
+      <body>
+        <h1>${sessionTitle}</h1>
+        <p style="color: #6b7280; font-size: 12px;">Exported from PRISM on ${new Date().toLocaleString()}</p>
+        <hr style="margin-bottom: 20px; border: none; border-top: 1px solid #e5e7eb;"/>
+        ${messages.map(m => `
+          <div class="message ${m.role === "user" ? "user" : ""}">
+            <div class="role">${m.role === "user" ? "You" : "PRISM AI"}</div>
+            <div>${m.content.replace(/\n/g, "<br/>")}</div>
+            ${m.citations && m.citations.length > 0 ? `<div class="sources"><strong>Sources:</strong> ${m.citations.map(c => `${c.document_name} (p.${c.page_number})`).join(", ")}</div>` : ""}
+          </div>
+        `).join("")}
+        <script>
+          window.onload = function() { window.print(); window.close(); };
+        </script>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
   // Phase 10: Share session
@@ -604,295 +663,283 @@ export default function PrismDashboard() {
 
   return (
     <div className="flex h-screen bg-zinc-50 text-zinc-900 dark:bg-[#080B11] dark:text-zinc-100 overflow-hidden font-sans">
-      {/* Left Sidebar - Documents Manager */}
-      <aside className="w-80 border-r border-zinc-200 dark:border-[#1E293B] bg-zinc-100 dark:bg-[#0E131F] flex flex-col shrink-0">
-        {/* Header */}
-        <div className="p-6 border-b border-zinc-200 dark:border-[#1E293B] flex items-center justify-between">
+      {/* Left Sidebar - ChatGPT Style Layout */}
+      <aside className={`${isSidebarOpen ? "w-80 border-r" : "w-0 overflow-hidden border-none"} border-zinc-200 dark:border-zinc-800/80 bg-zinc-100 dark:bg-[#17181C] flex flex-col shrink-0 transition-all duration-300 ease-in-out`}>
+        {/* Top Header */}
+        <div className="px-4 py-3.5 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800/60 shrink-0">
           <Link href="/" className="flex items-center space-x-2.5 hover:opacity-90 transition">
-            <img src="/logo.png" alt="PRISM Logo" className="h-7 w-7 rounded-lg object-cover shadow-md" />
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400">
+            <img src="/logo.png" alt="PRISM Logo" className="h-6 w-6 rounded-lg object-cover shadow-sm" />
+            <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">
               PRISM
-            </h1>
-          </Link>
-          <div className="flex items-center space-x-2">
-            <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono tracking-widest uppercase bg-emerald-100/50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200/50 dark:border-emerald-900/50">
-              v1.1 (Scoped Docs)
             </span>
+          </Link>
+          <div className="flex items-center space-x-1 text-zinc-500 dark:text-zinc-400">
+            <button className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition" title="Search chats">
+              <Search className="h-4 w-4" />
+            </button>
+            <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition" title="Collapse sidebar">
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
           </div>
         </div>
 
-        {/* Session List Panel */}
-        <div className="flex flex-col border-b border-zinc-200 dark:border-[#1E293B]" style={{maxHeight: '220px'}}>
-          <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
-            <span className="text-[10px] text-zinc-500 dark:text-slate-400 uppercase font-mono tracking-wider flex items-center">
-              <MessageSquare className="h-3 w-3 mr-1" />Sessions
-            </span>
-            <button
-              onClick={handleNewSession}
-              title="New Chat"
-              className="flex items-center space-x-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-900/40 transition"
-            >
-              <PlusCircle className="h-3 w-3" />
-              <span>New</span>
-            </button>
-          </div>
-          {sessionLimitError && (
-            <div className="mx-3 mb-1.5 px-2 py-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded text-[10px] text-amber-700 dark:text-amber-400">
-              {sessionLimitError}
+        {/* New Chat Button */}
+        <div className="px-3 pt-3 pb-2">
+          <button
+            onClick={handleNewSession}
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-zinc-200/80 dark:bg-[#212328] hover:bg-zinc-300/80 dark:hover:bg-[#2B2D33] text-zinc-900 dark:text-zinc-100 transition font-medium text-xs border border-zinc-300/60 dark:border-zinc-800/80 shadow-xs group"
+          >
+            <div className="flex items-center space-x-2.5">
+              <SquarePen className="h-4 w-4 text-zinc-700 dark:text-zinc-300 group-hover:text-emerald-500 transition" />
+              <span className="text-xs font-semibold">New chat</span>
             </div>
-          )}
-          <div className="overflow-y-auto flex-1 px-2 pb-2 space-y-0.5">
-            {sessions.length === 0 ? (
-              <p className="text-center text-zinc-400 text-xs py-3">No sessions yet</p>
-            ) : (
-              sessions.map(s => (
-                <div
-                  key={s.id}
-                  onClick={renamingSessionId === s.id ? undefined : () => handleSwitchSession(s.id)}
-                  className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg transition ${
-                    s.id === activeSessionId
-                      ? 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50'
-                      : 'hover:bg-zinc-200/60 dark:hover:bg-slate-800/60 text-zinc-600 dark:text-slate-400'
-                  } ${renamingSessionId === s.id ? 'cursor-default' : 'cursor-pointer'}`}
-                >
-                  {renamingSessionId === s.id ? (
-                    <div className="flex items-center space-x-1 flex-1" onClick={e => e.stopPropagation()}>
-                      <input
-                        autoFocus
-                        value={sessionRenameValue}
-                        onChange={e => setSessionRenameValue(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === "Enter") handleRenameSession(s.id);
-                          if (e.key === "Escape") { setRenamingSessionId(null); setSessionRenameValue(""); }
-                        }}
-                        className="flex-1 text-xs px-1.5 py-0.5 rounded border border-emerald-400 bg-white dark:bg-slate-900 text-zinc-800 dark:text-slate-200 outline-none min-w-0"
-                      />
-                      <button onClick={() => handleRenameSession(s.id)} className="text-emerald-500 hover:text-emerald-400 shrink-0"><Check className="h-3 w-3" /></button>
-                      <button onClick={() => { setRenamingSessionId(null); setSessionRenameValue(""); }} className="text-zinc-400 hover:text-red-400 shrink-0"><X className="h-3 w-3" /></button>
-                    </div>
-                  ) : (
-                    <span className="text-xs font-medium truncate max-w-[140px]">{s.title}</span>
-                  )}
-                  {renamingSessionId !== s.id && (
-                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition ml-1 shrink-0">
-                      <button
-                        onClick={e => { e.stopPropagation(); setRenamingSessionId(s.id); setSessionRenameValue(s.title); }}
-                        title="Rename session"
-                        className="text-zinc-400 hover:text-blue-500 dark:text-slate-500 dark:hover:text-blue-400 p-0.5 rounded transition"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </button>
-                      {deletingSessionId === s.id ? (
-                        <div className="flex items-center space-x-0.5" onClick={e => e.stopPropagation()}>
-                          <button
-                            onClick={() => handleDeleteSession(s.id)}
-                            title="Confirm delete"
-                            className="text-red-500 hover:text-red-600 bg-red-50 dark:bg-red-950/20 px-1 py-0.5 rounded text-[8px] font-bold border border-red-200 dark:border-red-900/30 transition leading-none shrink-0"
-                          >
-                            Del
-                          </button>
-                          <button
-                            onClick={() => setDeletingSessionId(null)}
-                            title="Cancel"
-                            className="text-zinc-400 hover:text-zinc-550 p-0.5 transition shrink-0"
-                          >
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </div>
-                      ) : (
+            <PlusCircle className="h-4 w-4 text-zinc-400 group-hover:text-emerald-500 transition" />
+          </button>
+        </div>
+
+        {sessionLimitError && (
+          <div className="mx-3 my-1 px-2.5 py-1.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-lg text-[10px] text-amber-700 dark:text-amber-400">
+            {sessionLimitError}
+          </div>
+        )}
+
+        {/* Scrollable Container for Chats & Documents */}
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-5">
+          {/* Chats Section */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between px-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">
+              <div className="flex items-center space-x-1">
+                <span>Chats</span>
+                <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+              </div>
+            </div>
+
+            <div className="space-y-0.5">
+              {sessions.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-zinc-400 dark:text-zinc-500 italic">No chats yet</div>
+              ) : (
+                sessions.map(s => (
+                  <div
+                    key={s.id}
+                    onClick={() => renamingSessionId === s.id ? undefined : handleSwitchSession(s.id)}
+                    className={`group relative flex items-center justify-between px-3 py-2 rounded-xl transition ${
+                      s.id === activeSessionId
+                        ? "bg-zinc-200/80 dark:bg-[#212328] text-zinc-900 dark:text-white font-medium shadow-2xs"
+                        : "hover:bg-zinc-200/60 dark:hover:bg-[#1E1F24] text-zinc-700 dark:text-zinc-300"
+                    } cursor-pointer`}
+                  >
+                    {renamingSessionId === s.id ? (
+                      <div className="flex items-center space-x-1 flex-1" onClick={e => e.stopPropagation()}>
+                        <input
+                          autoFocus
+                          value={sessionRenameValue}
+                          onChange={e => setSessionRenameValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") handleRenameSession(s.id);
+                            if (e.key === "Escape") setRenamingSessionId(null);
+                          }}
+                          className="flex-1 text-xs px-2 py-0.5 rounded border border-emerald-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white outline-none"
+                        />
+                        <button onClick={() => handleRenameSession(s.id)} className="text-emerald-500 hover:text-emerald-400 p-0.5"><Check className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => setRenamingSessionId(null)} className="text-zinc-400 hover:text-red-400 p-0.5"><X className="h-3.5 w-3.5" /></button>
+                      </div>
+                    ) : (
+                      <span className="text-xs truncate font-normal leading-relaxed pr-2">{s.title}</span>
+                    )}
+
+                    {renamingSessionId !== s.id && (
+                      <div className="flex items-center opacity-0 group-hover:opacity-100 transition shrink-0">
                         <button
                           onClick={e => {
                             e.stopPropagation();
-                            setDeletingSessionId(s.id);
-                            setTimeout(() => setDeletingSessionId(prev => prev === s.id ? null : prev), 4000);
+                            setMenuOpenId(prev => prev === s.id ? null : s.id);
                           }}
-                          title="Delete session"
-                          className="text-zinc-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 p-0.5 rounded transition shrink-0"
+                          className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/60 rounded-lg text-zinc-400 hover:text-zinc-200 transition"
+                          title="Options"
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <MoreHorizontal className="h-3.5 w-3.5" />
                         </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+                      </div>
+                    )}
 
-        {/* Upload Block */}
-        <div className="p-4 border-b border-zinc-200 dark:border-[#1E293B]">
-          <div 
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition duration-300 flex flex-col items-center justify-center space-y-2 group
-              ${isUploading 
-                ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/20" 
-                : "border-zinc-300 dark:border-slate-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 hover:bg-zinc-50 dark:hover:bg-[#131A2A]"}`}
-          >
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleUpload} 
-              accept=".pdf" 
-              className="hidden" 
-            />
-            {isUploading ? (
-              <>
-                <Loader2 className="h-8 w-8 text-emerald-500 animate-spin" />
-                <p className="text-sm font-medium text-zinc-700 dark:text-slate-300">Uploading PDF...</p>
-                <p className="text-xs text-zinc-500">Parsing document structure</p>
-              </>
-            ) : (
-              <>
-                <div className="p-3 rounded-full bg-zinc-200 dark:bg-slate-900 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/40 text-zinc-500 dark:text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
-                  <UploadCloud className="h-6 w-6" />
-                </div>
-                <p className="text-sm font-medium text-zinc-700 dark:text-slate-300 group-hover:text-zinc-600 dark:group-hover:text-slate-200">Upload PDF</p>
-                <p className="text-xs text-zinc-500">Drag & drop or browse</p>
-              </>
-            )}
-          </div>
-          {uploadError && (
-            <div className="mt-3 p-2 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-lg flex items-center space-x-2 text-red-600 dark:text-red-400 text-xs">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{uploadError}</span>
+                    {/* Context Options Popup Menu */}
+                    {menuOpenId === s.id && (
+                      <div
+                        onClick={e => e.stopPropagation()}
+                        className="absolute right-2 top-8 z-30 w-36 bg-white dark:bg-[#202123] border border-zinc-200 dark:border-zinc-700/80 rounded-xl shadow-xl py-1.5 text-xs text-zinc-700 dark:text-zinc-200 animate-in fade-in zoom-in-95 duration-100"
+                      >
+                        <button
+                          onClick={() => {
+                            setRenamingSessionId(s.id);
+                            setSessionRenameValue(s.title);
+                            setMenuOpenId(null);
+                          }}
+                          className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 text-left transition"
+                        >
+                          <Pencil className="h-3.5 w-3.5 text-zinc-400" />
+                          <span>Rename</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setDeleteModal({ type: "session", id: s.id, name: s.title });
+                            setMenuOpenId(null);
+                          }}
+                          className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 text-left transition font-medium"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Documents List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-slate-400 uppercase font-mono tracking-wider mb-2">
-            <span className="flex items-center"><Database className="h-3 w-3 mr-1" /> Workspaces</span>
-            <span>{documents.length} files</span>
           </div>
 
-          {documents.length === 0 ? (
-            <div className="text-center py-10 text-zinc-500 text-xs border border-zinc-200 dark:border-slate-900 rounded-lg">
-              No documents uploaded yet
+          {/* Documents Section (PDFs) */}
+          <div className="space-y-1.5 pt-2">
+            <div className="flex items-center justify-between px-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+              <span>Documents</span>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 transition shadow-2xs"
+                title="Upload PDF Document"
+              >
+                <UploadCloud className="h-3 w-3 mr-0.5" />
+                <span>Upload PDF</span>
+              </button>
+              <input type="file" ref={fileInputRef} onChange={handleUpload} accept=".pdf" className="hidden" />
             </div>
-          ) : (
-            documents.map((doc) => {
-              return (
-                <div 
-                  key={doc.id}
-                  onClick={() => doc.status === 'completed' && toggleDocSelection(doc.id)}
-                  className={`p-3.5 rounded-xl border transition flex flex-col space-y-2 ${
-                    selectedDocIds.includes(doc.id)
-                      ? 'border-emerald-500 dark:border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/10 ring-1 ring-emerald-500/30'
-                      : 'border-zinc-200 dark:border-slate-800/80 bg-white dark:bg-[#111622] hover:border-zinc-300 dark:hover:border-slate-700/50'
-                  } ${doc.status === 'completed' ? 'cursor-pointer' : ''}`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-2.5 overflow-hidden flex-1 mr-1">
-                      <FileText className="h-4.5 w-4.5 shrink-0 mt-0.5 text-zinc-400 dark:text-slate-400" />
+
+            {isUploading && (
+              <div className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40 rounded-xl flex items-center space-x-2 text-xs text-emerald-600 dark:text-emerald-400">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Uploading & parsing PDF...</span>
+              </div>
+            )}
+
+            {uploadError && (
+              <div className="px-3 py-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 rounded-xl flex items-center space-x-2 text-xs text-red-600 dark:text-red-400">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{uploadError}</span>
+              </div>
+            )}
+
+            <div className="space-y-0.5">
+              {documents.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-zinc-400 dark:text-zinc-500 italic">No documents uploaded yet</div>
+              ) : (
+                (showAllProjects ? documents : documents.slice(0, 5)).map((doc) => (
+                  <div
+                    key={doc.id}
+                    onClick={() => doc.status === "completed" && toggleDocSelection(doc.id)}
+                    className={`group relative flex items-center justify-between px-3 py-2 rounded-xl transition ${
+                      selectedDocIds.includes(doc.id)
+                        ? "bg-emerald-100/70 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 font-medium"
+                        : "hover:bg-zinc-200/60 dark:hover:bg-[#212328] text-zinc-700 dark:text-zinc-300"
+                    } ${doc.status === "completed" ? "cursor-pointer" : "cursor-default"}`}
+                  >
+                    <div className="flex items-center space-x-2 truncate flex-1 min-w-0 mr-2">
+                      <Folder className="h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-400 group-hover:text-emerald-500 transition" />
                       {renamingDocId === doc.id ? (
-                        <div className="flex items-center space-x-1 flex-1" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center space-x-1 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
                           <input
                             autoFocus
                             value={renameValue}
                             onChange={e => setRenameValue(e.target.value)}
-                            onKeyDown={e => { if (e.key === "Enter") handleRenameDoc(doc.id); if (e.key === "Escape") { setRenamingDocId(null); setRenameValue(""); } }}
-                            className="flex-1 text-sm px-1.5 py-0.5 rounded border border-emerald-400 bg-white dark:bg-slate-900 text-zinc-800 dark:text-slate-200 outline-none"
+                            onKeyDown={e => { if (e.key === "Enter") handleRenameDoc(doc.id); if (e.key === "Escape") setRenamingDocId(null); }}
+                            className="w-full text-xs px-2 py-0.5 rounded border border-emerald-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white outline-none"
                           />
-                          <button onClick={() => handleRenameDoc(doc.id)} className="text-emerald-500 hover:text-emerald-400"><Check className="h-3.5 w-3.5" /></button>
-                          <button onClick={() => { setRenamingDocId(null); setRenameValue(""); }} className="text-zinc-400 hover:text-red-400"><X className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => handleRenameDoc(doc.id)} className="text-emerald-500 hover:text-emerald-400 p-0.5"><Check className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => setRenamingDocId(null)} className="text-zinc-400 hover:text-red-400 p-0.5"><X className="h-3.5 w-3.5" /></button>
                         </div>
                       ) : (
-                        <span className="text-sm font-medium truncate text-zinc-800 dark:text-slate-200">{doc.name}</span>
+                        <span className="text-xs truncate font-medium">{doc.name}</span>
                       )}
                     </div>
-                    <div className="flex items-center space-x-1 shrink-0">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setRenamingDocId(doc.id); setRenameValue(doc.name); }}
-                        title="Rename document"
-                        className="text-zinc-400 hover:text-blue-500 dark:text-slate-500 dark:hover:text-blue-400 p-0.5 rounded transition hover:bg-zinc-200 dark:hover:bg-slate-900"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleReprocessDoc(doc.id); }}
-                        title="Re-ingest document"
-                        className="text-zinc-400 hover:text-amber-500 dark:text-slate-500 dark:hover:text-amber-400 p-0.5 rounded transition hover:bg-zinc-200 dark:hover:bg-slate-900"
-                        disabled={reprocessingDocId === doc.id}
-                      >
-                        <RefreshCcw className={`h-3.5 w-3.5 ${reprocessingDocId === doc.id ? 'animate-spin text-amber-500' : ''}`} />
-                      </button>
-                      {deletingDocId === doc.id ? (
-                        <div className="flex items-center space-x-1 shrink-0" onClick={e => e.stopPropagation()}>
-                          <button
-                            onClick={() => handleDeleteDoc(doc.id)}
-                            title="Confirm delete"
-                            className="text-red-500 hover:text-red-600 bg-red-50 dark:bg-red-950/20 px-1.5 py-0.5 rounded text-[10px] font-bold border border-red-200 dark:border-red-900/30 transition"
-                          >
-                            Delete
-                          </button>
-                          <button
-                            onClick={() => setDeletingDocId(null)}
-                            title="Cancel"
-                            className="text-zinc-400 hover:text-zinc-500 p-0.5 rounded transition"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeletingDocId(doc.id);
-                            setTimeout(() => setDeletingDocId(prev => prev === doc.id ? null : prev), 4000);
-                          }}
-                          title="Delete document"
-                          className="text-zinc-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 p-0.5 rounded transition hover:bg-zinc-200 dark:hover:bg-slate-900"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
 
-                  <div className="flex items-center justify-between text-xs pt-1 border-t border-zinc-200 dark:border-slate-900">
-                    <span className="text-zinc-500 dark:text-slate-500 font-mono">
-                      {doc.chunk_count > 0 ? `${doc.chunk_count} chunks` : "pending"}
-                    </span>
-                    <div className="flex items-center space-x-2">
-                      {doc.status === "completed" && (
+                    {/* Action Buttons on Hover */}
+                    {renamingDocId !== doc.id && (
+                      <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition shrink-0">
+                        {doc.status === "completed" && (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              setViewingDoc({ id: doc.id, name: doc.name });
+                            }}
+                            className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/60 rounded text-zinc-400 hover:text-emerald-500 transition"
+                            title="View PDF"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation();
-                            setViewingDoc({ id: doc.id, name: doc.name });
+                            setRenamingDocId(doc.id);
+                            setRenameValue(doc.name);
                           }}
-                          title="View Document"
-                          className="flex items-center space-x-1 text-emerald-600 dark:text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-950/40 px-1.5 py-0.5 rounded text-[10px] font-medium border border-emerald-200 dark:border-emerald-900/30 transition"
+                          className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/60 rounded text-zinc-400 hover:text-blue-500 transition"
+                          title="Rename document"
                         >
-                          <Eye className="h-3 w-3" />
-                          <span>View</span>
+                          <Pencil className="h-3.5 w-3.5" />
                         </button>
-                      )}
-                      {doc.status === "completed" && (
-                        <span className="text-emerald-600 dark:text-emerald-500 flex items-center bg-emerald-50 dark:bg-emerald-950/20 px-1.5 py-0.5 rounded text-[10px] font-medium border border-emerald-200 dark:border-emerald-900/30">
-                          <CheckCircle className="h-3 w-3 mr-1" /> Active
-                        </span>
-                      )}
-                      {doc.status.startsWith("processing") && (
-                        <span className="text-amber-600 dark:text-amber-500 flex items-center bg-amber-50 dark:bg-amber-950/20 px-1.5 py-0.5 rounded text-[10px] font-medium border border-amber-200 dark:border-amber-900/30" title={doc.status.includes(":") ? doc.status.split(":")[1] : "Ingestion in progress..."}>
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          <span className="max-w-[70px] truncate">
-                            {doc.status.includes(":") ? doc.status.split(":")[1].replace("processing:","") : "Ingestion"}
-                          </span>
-                        </span>
-                      )}
-                      {doc.status === "failed" && (
-                        <span className="text-red-600 dark:text-red-500 flex items-center bg-red-50 dark:bg-red-950/20 px-1.5 py-0.5 rounded text-[10px] font-medium border border-red-200 dark:border-red-900/30">
-                          <AlertCircle className="h-3 w-3 mr-1" /> Failed
-                        </span>
-                      )}
-                    </div>
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            setDeleteModal({ type: "doc", id: doc.id, name: doc.name });
+                          }}
+                          className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/60 rounded text-zinc-400 hover:text-red-500 transition"
+                          title="Delete document"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
-              );
-            })
-          )}
+                ))
+              )}
+
+              {documents.length > 5 && !showAllProjects && (
+                <button
+                  onClick={() => setShowAllProjects(true)}
+                  className="w-full text-left px-3 py-1.5 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition font-medium"
+                >
+                  Show more ({documents.length - 5})
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom User Profile Section */}
+        <div className="p-3 border-t border-zinc-200 dark:border-zinc-800/80 flex items-center justify-between bg-zinc-100/90 dark:bg-[#121316]">
+          <div className="flex items-center space-x-3 overflow-hidden">
+            {user?.photoURL ? (
+              <img src={user.photoURL} alt="Avatar" className="h-8 w-8 rounded-full object-cover border border-zinc-300 dark:border-zinc-700" />
+            ) : (
+              <div className="h-8 w-8 rounded-full bg-zinc-300 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 flex items-center justify-center font-bold text-xs shrink-0">
+                {user?.displayName ? user.displayName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : (user?.email?.slice(0, 2).toUpperCase() || "SA")}
+              </div>
+            )}
+            <div className="flex flex-col truncate">
+              <span className="text-xs font-semibold tracking-wide text-zinc-900 dark:text-white truncate">
+                {user?.displayName || user?.email?.split("@")[0].toUpperCase() || "SARTHAK MEHRA"}
+              </span>
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
+                Go
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center space-x-1">
+            <button onClick={toggleTheme} className="p-1.5 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white rounded-lg transition" title="Toggle theme">
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <button onClick={signOut} className="p-1.5 text-zinc-500 hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-400 rounded-lg transition" title="Sign out">
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -901,6 +948,15 @@ export default function PrismDashboard() {
         {/* Top Header */}
         <header className="h-16 border-b border-zinc-200 dark:border-[#1E293B] bg-white/80 dark:bg-[#0E131F]/80 backdrop-blur-md px-8 flex items-center justify-between shrink-0 sticky top-0 z-10">
           <div className="flex items-center space-x-3">
+            {!isSidebarOpen && (
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition"
+                title="Open sidebar"
+              >
+                <PanelLeft className="h-5 w-5" />
+              </button>
+            )}
             <MessageSquare className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             <h2 className="font-semibold text-zinc-800 dark:text-slate-200 truncate max-w-xs">
               {sessions.find(s => s.id === activeSessionId)?.title || "New Chat"}
@@ -915,15 +971,63 @@ export default function PrismDashboard() {
           <div className="flex items-center space-x-3">
             {messages.length > 0 && (
               <>
-                <button
-                  type="button"
-                  onClick={handleDownloadMarkdown}
-                  title="Download chat as Markdown"
-                  className="flex items-center space-x-1.5 text-xs text-zinc-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-900/50 bg-white dark:bg-zinc-900 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  <span>Export</span>
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowExportMenu(prev => !prev)}
+                    title="Export conversation"
+                    className="flex items-center space-x-1.5 text-xs text-zinc-700 dark:text-zinc-200 hover:text-emerald-600 dark:hover:text-emerald-400 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800/80 hover:border-emerald-300 dark:hover:border-emerald-900/60 bg-white/90 dark:bg-[#18191C] hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20 transition-all duration-200 shadow-2xs font-semibold group"
+                  >
+                    <Download className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition duration-200" />
+                    <span>Export</span>
+                    <ChevronDown className={`h-3 w-3 opacity-60 transition-transform duration-200 ${showExportMenu ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {showExportMenu && (
+                    <>
+                      {/* Invisible backdrop overlay to handle closing on click outside */}
+                      <div className="fixed inset-0 z-20" onClick={() => setShowExportMenu(false)} />
+
+                      <div className="absolute right-0 mt-2 z-30 w-56 bg-white/95 dark:bg-[#18191C]/95 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl shadow-2xl p-1.5 text-xs animate-in fade-in slide-in-from-top-2 duration-150">
+                        <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 border-b border-zinc-100 dark:border-zinc-800/60 mb-1">
+                          Export Format
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleDownloadMarkdown();
+                            setShowExportMenu(false);
+                          }}
+                          className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/70 text-left transition duration-150 group"
+                        >
+                          <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/40 text-blue-600 dark:text-blue-400 group-hover:scale-105 transition">
+                            <FileText className="h-4 w-4" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-zinc-800 dark:text-zinc-100">Markdown (.md)</span>
+                            <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Formatted text with sources</span>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleDownloadPDF();
+                            setShowExportMenu(false);
+                          }}
+                          className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/70 text-left transition duration-150 group"
+                        >
+                          <div className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 group-hover:scale-105 transition">
+                            <Download className="h-4 w-4" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-zinc-800 dark:text-zinc-100">PDF Document (.pdf)</span>
+                            <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Print or save as PDF</span>
+                          </div>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={handleShare}
@@ -1027,21 +1131,7 @@ export default function PrismDashboard() {
                       ? "bg-emerald-600/90 border-emerald-500/50 text-white rounded-br-none" 
                       : "bg-white dark:bg-[#0E131F] border-zinc-200 dark:border-slate-800 rounded-bl-none text-zinc-800 dark:text-slate-200"}`}
                   >
-                    <div className="whitespace-pre-wrap pr-6">{msg.content}</div>
-                    
-                    {msg.role === "assistant" && (
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(msg.content);
-                          setShareToast("Copied response to clipboard!");
-                          setTimeout(() => setShareToast(null), 2500);
-                        }}
-                        title="Copy message to clipboard"
-                        className="absolute right-2 top-2 opacity-40 hover:opacity-100 p-1 rounded-md bg-zinc-100 hover:bg-zinc-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-zinc-200 dark:border-slate-850 text-zinc-500 dark:text-slate-400 transition"
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                      </button>
-                    )}
+                    <div className="whitespace-pre-wrap">{msg.content}</div>
                   </div>
 
                   {/* Warning message if citation check failed */}
@@ -1160,6 +1250,46 @@ export default function PrismDashboard() {
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center space-x-2 bg-zinc-900 border border-emerald-700/50 text-emerald-300 text-xs font-medium px-4 py-2.5 rounded-xl shadow-xl animate-in slide-in-from-bottom-4 duration-300">
           <Check className="h-4 w-4 text-emerald-400 shrink-0" />
           <span>{shareToast}</span>
+        </div>
+      )}
+
+      {/* ChatGPT Delete Confirmation Modal (Supports Light & Dark theme) */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-white dark:bg-[#18191C] border border-zinc-200 dark:border-zinc-800/80 rounded-2xl shadow-2xl p-6 flex flex-col space-y-4 text-zinc-900 dark:text-zinc-100">
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">
+              {deleteModal.type === "session" ? "Delete chat?" : "Delete document?"}
+            </h3>
+            <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+              This will delete <strong className="font-semibold text-zinc-950 dark:text-white">{deleteModal.name}</strong>.
+            </p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-500">
+              Visit settings to delete any memories saved during this chat.
+            </p>
+            <div className="flex items-center justify-end space-x-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteModal(null)}
+                className="px-4 py-2 rounded-full text-xs font-medium bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (deleteModal.type === "session") {
+                    handleDeleteSession(deleteModal.id as string);
+                  } else {
+                    handleDeleteDoc(deleteModal.id as number);
+                  }
+                  setDeleteModal(null);
+                }}
+                className="px-5 py-2 rounded-full text-xs font-semibold bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/30 transition"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

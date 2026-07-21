@@ -45,11 +45,11 @@ def startup_event():
     logger.info("Starting up Prism API...")
     init_db()
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def read_root():
     return {"status": "online", "message": "Welcome to Prism Multimodal Document Intelligence Platform"}
 
-@app.get("/api/health")
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 def health_check(db: Session = Depends(get_db)):
     firebase_active = bool(firebase_admin._apps)
     db_ok = False
@@ -293,10 +293,18 @@ def get_document_file(
     ).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found or access denied")
-    if not os.path.exists(doc.file_path):
-        raise HTTPException(status_code=404, detail="File not found on disk")
+    
+    resolved_path = doc.file_path
+    if not os.path.exists(resolved_path):
+        filename = os.path.basename(doc.file_path)
+        fallback_path = os.path.join(UPLOAD_DIR, filename)
+        if os.path.exists(fallback_path):
+            resolved_path = fallback_path
+        else:
+            raise HTTPException(status_code=404, detail=f"File '{filename}' not found on disk")
+
     return FileResponse(
-        doc.file_path,
+        resolved_path,
         media_type="application/pdf",
         headers={"Content-Disposition": f"inline; filename=\"{doc.name}\""}
     )

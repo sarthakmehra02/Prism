@@ -33,6 +33,7 @@ services:
       - DOCLING_MODELS_CACHE=/cache/docling
     volumes:
       - ./backend:/app
+      - ./backend/uploads:/app/uploads
       - cache_volume:/cache
     depends_on:
       db:
