@@ -946,8 +946,9 @@ export default function PrismDashboard() {
       {/* Main Panel - Chat Area */}
       <main className={`flex-1 flex flex-col bg-zinc-50 dark:bg-[#080B11] relative transition-opacity duration-200 ${isSessionLoading ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
         {/* Top Header */}
-        <header className="h-16 border-b border-zinc-200 dark:border-[#1E293B] bg-white/80 dark:bg-[#0E131F]/80 backdrop-blur-md px-8 flex items-center justify-between shrink-0 sticky top-0 z-10">
-          <div className="flex items-center space-x-3">
+        <header className="h-16 border-b border-zinc-200 dark:border-[#1E293B] bg-white/80 dark:bg-[#0E131F]/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 sticky top-0 z-10 gap-4">
+          {/* Left Title */}
+          <div className="flex items-center space-x-2.5 shrink-0 min-w-0">
             {!isSidebarOpen && (
               <button
                 onClick={() => setIsSidebarOpen(true)}
@@ -957,136 +958,140 @@ export default function PrismDashboard() {
                 <PanelLeft className="h-5 w-5" />
               </button>
             )}
-            <MessageSquare className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            <h2 className="font-semibold text-zinc-800 dark:text-slate-200 truncate max-w-xs">
+            <MessageSquare className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <h2 className="font-semibold text-zinc-800 dark:text-slate-200 truncate max-w-[130px] sm:max-w-[180px] lg:max-w-xs">
               {sessions.find(s => s.id === activeSessionId)?.title || "New Chat"}
             </h2>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="text-xs text-zinc-500 dark:text-slate-400">
-              {selectedDocIds.length > 0
-                ? `Querying ${selectedDocIds.length} selected document${selectedDocIds.length > 1 ? 's' : ''} — click to deselect`
-                : 'Querying all active documents — click a doc to filter'}
-            </div>
-          <div className="flex items-center space-x-3">
-            {messages.length > 0 && (
-              <>
-                <div className="relative">
+
+          {/* Center Document Context Hint */}
+          <div className={`hidden ${viewingDoc ? 'hidden' : 'xl:block'} text-xs text-zinc-500 dark:text-slate-400 truncate text-center px-2 flex-1 max-w-md`}>
+            {selectedDocIds.length > 0
+              ? `Querying ${selectedDocIds.length} selected document${selectedDocIds.length > 1 ? 's' : ''} — click doc to filter`
+              : 'Querying all active documents — click a doc to filter'}
+          </div>
+
+          {/* Right Action Buttons (Collapsed when viewing a document to give PDF panel maximum space) */}
+          {!viewingDoc && (
+            <div className="flex items-center space-x-2 shrink-0">
+              {messages.length > 0 && (
+                <>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowExportMenu(prev => !prev)}
+                      title="Export conversation"
+                      className="flex items-center space-x-1.5 text-xs text-zinc-700 dark:text-zinc-200 hover:text-emerald-600 dark:hover:text-emerald-400 px-2.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800/80 hover:border-emerald-300 dark:hover:border-emerald-900/60 bg-white/90 dark:bg-[#18191C] hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20 transition-all duration-200 shadow-2xs font-semibold group"
+                    >
+                      <Download className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition duration-200" />
+                      <span>Export</span>
+                      <ChevronDown className={`h-3 w-3 opacity-60 transition-transform duration-200 ${showExportMenu ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {showExportMenu && (
+                      <>
+                        {/* Invisible backdrop overlay to handle closing on click outside */}
+                        <div className="fixed inset-0 z-20" onClick={() => setShowExportMenu(false)} />
+
+                        <div className="absolute right-0 mt-2 z-30 w-56 bg-white/95 dark:bg-[#18191C]/95 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl shadow-2xl p-1.5 text-xs animate-in fade-in slide-in-from-top-2 duration-150">
+                          <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 border-b border-zinc-100 dark:border-zinc-800/60 mb-1">
+                            Export Format
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleDownloadMarkdown();
+                              setShowExportMenu(false);
+                            }}
+                            className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/70 text-left transition duration-150 group"
+                          >
+                            <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/40 text-blue-600 dark:text-blue-400 group-hover:scale-105 transition">
+                              <FileText className="h-4 w-4" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-zinc-800 dark:text-zinc-100">Markdown (.md)</span>
+                              <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Formatted text with sources</span>
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleDownloadPDF();
+                              setShowExportMenu(false);
+                            }}
+                            className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/70 text-left transition duration-150 group"
+                          >
+                            <div className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 group-hover:scale-105 transition">
+                              <Download className="h-4 w-4" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-zinc-800 dark:text-zinc-100">PDF Document (.pdf)</span>
+                              <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Print or save as PDF</span>
+                            </div>
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setShowExportMenu(prev => !prev)}
-                    title="Export conversation"
-                    className="flex items-center space-x-1.5 text-xs text-zinc-700 dark:text-zinc-200 hover:text-emerald-600 dark:hover:text-emerald-400 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800/80 hover:border-emerald-300 dark:hover:border-emerald-900/60 bg-white/90 dark:bg-[#18191C] hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20 transition-all duration-200 shadow-2xs font-semibold group"
+                    onClick={handleShare}
+                    title="Share a link to this chat"
+                    className="flex items-center space-x-1.5 text-xs text-zinc-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-900/50 bg-white dark:bg-zinc-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition"
                   >
-                    <Download className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition duration-200" />
-                    <span>Export</span>
-                    <ChevronDown className={`h-3 w-3 opacity-60 transition-transform duration-200 ${showExportMenu ? "rotate-180" : ""}`} />
+                    <Share2 className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Share</span>
                   </button>
-
-                  {showExportMenu && (
-                    <>
-                      {/* Invisible backdrop overlay to handle closing on click outside */}
-                      <div className="fixed inset-0 z-20" onClick={() => setShowExportMenu(false)} />
-
-                      <div className="absolute right-0 mt-2 z-30 w-56 bg-white/95 dark:bg-[#18191C]/95 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl shadow-2xl p-1.5 text-xs animate-in fade-in slide-in-from-top-2 duration-150">
-                        <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 border-b border-zinc-100 dark:border-zinc-800/60 mb-1">
-                          Export Format
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleDownloadMarkdown();
-                            setShowExportMenu(false);
-                          }}
-                          className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/70 text-left transition duration-150 group"
-                        >
-                          <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/40 text-blue-600 dark:text-blue-400 group-hover:scale-105 transition">
-                            <FileText className="h-4 w-4" />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-zinc-800 dark:text-zinc-100">Markdown (.md)</span>
-                            <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Formatted text with sources</span>
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleDownloadPDF();
-                            setShowExportMenu(false);
-                          }}
-                          className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/70 text-left transition duration-150 group"
-                        >
-                          <div className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 group-hover:scale-105 transition">
-                            <Download className="h-4 w-4" />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-zinc-800 dark:text-zinc-100">PDF Document (.pdf)</span>
-                            <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Print or save as PDF</span>
-                          </div>
-                        </button>
-                      </div>
-                    </>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessages([]);
+                    }}
+                    title="Clear chat history"
+                    className="flex items-center space-x-1.5 text-xs text-zinc-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-slate-800 hover:border-red-300 dark:hover:border-red-900/50 bg-white dark:bg-zinc-900 hover:bg-red-50 dark:hover:bg-red-950/20 transition"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Clear</span>
+                  </button>
+                </>
+              )}
+              {user && (
+                <div className="flex items-center space-x-1.5 border-r border-zinc-200 dark:border-slate-850 pr-2 mr-0.5">
+                  {user.photoURL && !imgError ? (
+                    <img
+                      src={user.photoURL}
+                      alt={user.displayName || "User"}
+                      onError={() => setImgError(true)}
+                      className="h-7 w-7 rounded-full object-cover border border-emerald-500/50"
+                    />
+                  ) : (
+                    <div className="h-7 w-7 rounded-full bg-emerald-700/80 text-white flex items-center justify-center text-xs font-bold font-mono">
+                      {(user.displayName || user.email || "?").charAt(0).toUpperCase()}
+                    </div>
                   )}
+                  <span className="hidden 2xl:inline text-xs text-zinc-600 dark:text-slate-300 max-w-[100px] truncate font-medium">
+                    {user.displayName || user.email}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={signOut}
+                    title="Sign out"
+                    className="p-1.5 text-zinc-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleShare}
-                  title="Share a link to this chat"
-                  className="flex items-center space-x-1.5 text-xs text-zinc-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-900/50 bg-white dark:bg-zinc-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition"
-                >
-                  <Share2 className="h-3.5 w-3.5" />
-                  <span>Share</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMessages([]);
-                  }}
-                  title="Clear chat history"
-                  className="flex items-center space-x-1.5 text-xs text-zinc-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-slate-800 hover:border-red-300 dark:hover:border-red-900/50 bg-white dark:bg-zinc-900 hover:bg-red-50 dark:hover:bg-red-950/20 transition"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>Clear</span>
-                </button>
-              </>
-            )}
-            {user && (
-              <div className="flex items-center space-x-2 border-r border-zinc-200 dark:border-slate-850 pr-3 mr-1">
-                {user.photoURL && !imgError ? (
-                  <img
-                    src={user.photoURL}
-                    alt={user.displayName || "User"}
-                    onError={() => setImgError(true)}
-                    className="h-7 w-7 rounded-full object-cover border border-emerald-500/50"
-                  />
-                ) : (
-                  <div className="h-7 w-7 rounded-full bg-emerald-700/80 text-white flex items-center justify-center text-xs font-bold font-mono">
-                    {(user.displayName || user.email || "?").charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <span className="hidden md:inline text-xs text-zinc-600 dark:text-slate-300 max-w-[120px] truncate font-medium">
-                  {user.displayName || user.email}
-                </span>
-                <button
-                  type="button"
-                  onClick={signOut}
-                  title="Sign out"
-                  className="p-1.5 text-zinc-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition"
-                >
-                  <LogOut className="h-4 w-4" />
-                </button>
-              </div>
-            )}
-            <button 
-              type="button"
-              onClick={toggleTheme}
-              className="p-2 rounded-xl bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-900 dark:hover:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 transition"
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4 text-emerald-400" /> : <Moon className="h-4 w-4 text-emerald-600" />}
-            </button>
-          </div>
-          </div>
+              )}
+              <button 
+                type="button"
+                onClick={toggleTheme}
+                className="p-2 rounded-xl bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-900 dark:hover:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 transition"
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? <Sun className="h-4 w-4 text-emerald-400" /> : <Moon className="h-4 w-4 text-emerald-600" />}
+              </button>
+            </div>
+          )}
         </header>
 
         {/* Chat Messages */}
@@ -1217,22 +1222,24 @@ export default function PrismDashboard() {
 
       {/* Right Sidebar - Document Viewer */}
       {viewingDoc && (
-        <aside className="w-[500px] xl:w-[600px] border-l border-zinc-200 dark:border-[#1E293B] bg-white dark:bg-[#0E131F] flex flex-col shrink-0">
-          <div className="p-4 border-b border-zinc-200 dark:border-[#1E293B] flex items-center justify-between bg-zinc-50 dark:bg-[#111622]">
-            <div className="flex items-center space-x-2">
-              <FileText className="h-5 w-5 text-emerald-500" />
-              <span className="font-semibold truncate max-w-[280px] xl:max-w-[350px]">{viewingDoc.name}</span>
+        <aside className="w-[380px] lg:w-[460px] xl:w-[520px] max-w-[40vw] border-l border-zinc-200 dark:border-[#1E293B] bg-white dark:bg-[#0E131F] flex flex-col shrink-0">
+          <div className="h-16 px-4 border-b border-zinc-200 dark:border-[#1E293B] flex items-center justify-between bg-zinc-50 dark:bg-[#111622] shrink-0">
+            <div className="flex items-center space-x-2 min-w-0 mr-2">
+              <FileText className="h-4.5 w-4.5 text-emerald-500 shrink-0" />
+              <span className="font-semibold text-xs text-zinc-900 dark:text-white truncate max-w-[180px] lg:max-w-[260px]">{viewingDoc.name}</span>
               {viewingDoc.page && (
-                <span className="text-xs bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-400 px-2 py-0.5 rounded font-mono">
-                  Page {viewingDoc.page}
+                <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-400 px-1.5 py-0.5 rounded font-mono shrink-0">
+                  Pg. {viewingDoc.page}
                 </span>
               )}
             </div>
             <button 
               onClick={() => setViewingDoc(null)}
-              className="text-zinc-400 hover:text-zinc-600 dark:text-slate-500 dark:hover:text-slate-300 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-slate-900 transition text-xs font-semibold"
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-zinc-200/80 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition font-semibold text-xs border border-zinc-300 dark:border-zinc-700 shadow-2xs shrink-0 group"
+              title="Close PDF viewer"
             >
-              Close
+              <X className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition" />
+              <span>Close</span>
             </button>
           </div>
           <div className="flex-1 bg-zinc-100 dark:bg-zinc-950 relative">
