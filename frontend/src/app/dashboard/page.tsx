@@ -668,7 +668,7 @@ export default function PrismDashboard() {
         {/* Top Header */}
         <div className="px-4 py-3.5 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800/60 shrink-0">
           <Link href="/" className="flex items-center space-x-2.5 hover:opacity-90 transition">
-            <img src="/logo.png" alt="PRISM Logo" className="h-6 w-6 rounded-lg object-cover shadow-sm" />
+            <img src="/logo.png?v=2" alt="PRISM Logo" className="h-6 w-6 rounded-lg object-cover shadow-sm" />
             <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">
               PRISM
             </span>

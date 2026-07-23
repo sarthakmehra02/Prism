@@ -65,7 +65,7 @@ export default function LandingPage() {
       {/* Header */}
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 dark:bg-[#090D16]/80 border-b border-slate-200 dark:border-slate-800/80 px-6 lg:px-12 h-16 flex items-center justify-between transition-colors">
         <Link href="/" className="flex items-center space-x-2.5 hover:opacity-90 transition">
-          <img src="/logo.png" alt="PRISM Logo" className="h-7 w-7 rounded-lg object-cover shadow-md" />
+          <img src="/logo.png?v=2" alt="PRISM Logo" className="h-7 w-7 rounded-lg object-cover shadow-md" />
           <span className="text-base font-bold tracking-wide text-slate-900 dark:text-white">
             PRISM
           </span>

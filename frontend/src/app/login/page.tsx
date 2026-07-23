@@ -132,7 +132,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-white/80 dark:bg-zinc-900/60 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 p-8 rounded-2xl shadow-2xl relative z-10">
         <div className="flex flex-col items-center space-y-2 mb-8">
           <Link href="/" title="Back to landing page" className="flex flex-col items-center group cursor-pointer">
-            <img src="/logo.png" alt="PRISM Logo" className="h-14 w-14 rounded-2xl object-cover shadow-xl group-hover:scale-105 transition duration-200" />
+            <img src="/logo.png?v=2" alt="PRISM Logo" className="h-14 w-14 rounded-2xl object-cover shadow-xl group-hover:scale-105 transition duration-200" />
             <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400 mt-2">
               PRISM
             </h1>
