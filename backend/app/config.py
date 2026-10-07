@@ -14,6 +14,19 @@ class Settings(BaseSettings):
     def clean_nvidia_api_key(self) -> str:
         return (self.NVIDIA_API_KEY or "").strip().strip("'\"")
 
+    @property
+    def clean_nvidia_base_url(self) -> str:
+        raw = (self.NVIDIA_BASE_URL or "https://integrate.api.nvidia.com/v1").strip().strip("'\"").rstrip("/")
+        if not raw:
+            return "https://integrate.api.nvidia.com/v1"
+        if raw.startswith("http://"):
+            raw = "https://" + raw[7:]
+        if "api.nvidia.com" in raw and "integrate." not in raw:
+            raw = raw.replace("api.nvidia.com", "integrate.api.nvidia.com")
+        if not raw.endswith("/v1"):
+            raw = f"{raw}/v1"
+        return raw
+
     # Optional database URL (if using remote Postgres/Supabase)
     DATABASE_URL: str = ""
 

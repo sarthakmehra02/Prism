@@ -33,7 +33,7 @@ class DocumentParser:
         if self.openai_client is None:
             from openai import OpenAI
             self.openai_client = OpenAI(
-                base_url=settings.NVIDIA_BASE_URL,
+                base_url=settings.clean_nvidia_base_url,
                 api_key=settings.clean_nvidia_api_key or "missing-key",
             )
         return self.openai_client

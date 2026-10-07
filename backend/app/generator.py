@@ -10,7 +10,7 @@ logger = logging.getLogger("prism.generator")
 class AnswerGenerator:
     def __init__(self):
         self.api_key = settings.clean_nvidia_api_key
-        self.base_url = settings.NVIDIA_BASE_URL
+        self.base_url = settings.clean_nvidia_base_url
         self.model = settings.NVIDIA_MODEL or "meta/llama-3.2-11b-vision-instruct"
         self.client = None
         if self.api_key:
@@ -131,7 +131,7 @@ class AnswerGenerator:
                 query=query,
                 chunks=chunks,
                 citations=citations,
-                warning=f"AI generation service error ({type(e).__name__}). Displaying direct document excerpts below."
+                warning=f"AI generation service error ({type(e).__name__}: {str(e)[:120]}). Displaying direct document excerpts below."
             )
 
     def _build_fallback_response(
