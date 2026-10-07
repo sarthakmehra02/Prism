@@ -1,16 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { 
-  UploadCloud, 
-  FileText, 
-  CheckCircle, 
-  AlertCircle, 
-  Loader2, 
-  Send, 
-  MessageSquare, 
-  Database, 
-  Sparkles, 
+import {
+  UploadCloud,
+  FileText,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
+  Send,
+  MessageSquare,
+  Database,
+  Sparkles,
   Trash2,
   FileSpreadsheet,
   Image as ImageIcon,
@@ -179,7 +179,7 @@ export default function PrismDashboard() {
             setMessages(data.messages || []);
             setSelectedDocIds(data.doc_ids || []);
           }
-        } catch {}
+        } catch { }
       } else {
         // First-ever login: create a session
         try {
@@ -194,10 +194,10 @@ export default function PrismDashboard() {
             setMessages([]);
             setSelectedDocIds([]);
           }
-        } catch {}
+        } catch { }
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, user]);
 
   // Debounced auto-save whenever messages or doc selection changes
@@ -208,7 +208,7 @@ export default function PrismDashboard() {
       saveSession(activeSessionId, messages, selectedDocIds, token);
     }, 600);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, selectedDocIds]);
 
   // Handle Theme Preference
@@ -254,13 +254,13 @@ export default function PrismDashboard() {
     if (!token || !activeSessionId) return;
     fetchDocuments();
     const interval = setInterval(() => {
-      const hasProcessing = documents.some(doc => doc.status.startsWith("processing"));
+      const hasProcessing = documents.some(doc => doc.status.startsWith("processing") || doc.status === "pending");
       if (hasProcessing || documents.length === 0) {
         fetchDocuments();
       }
-    }, 4000);
+    }, 2000);
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documents.map(d => d.status).join(","), token, activeSessionId]);
 
   // Scroll to bottom of chat
@@ -381,7 +381,7 @@ export default function PrismDashboard() {
     const sessionTitle = sessions.find(s => s.id === activeSessionId)?.title || "chat";
     const markdown = `# Prism Chat: ${sessionTitle}\n*Exported on ${new Date().toLocaleDateString()}*\n\n---\n\n${lines.join("\n\n---\n\n")}`;
     const slug = sessionTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "chat";
-    
+
     const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -401,7 +401,7 @@ export default function PrismDashboard() {
     const sessionTitle = sessions.find(s => s.id === activeSessionId)?.title || "Prism Chat";
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-    
+
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -527,7 +527,7 @@ export default function PrismDashboard() {
           const docUrl = `${apiBaseUrl}/api/documents?session_id=${sessionId}`;
           const docRes = await fetch(docUrl, { headers: { "Authorization": `Bearer ${token}` } });
           if (docRes.ok) setDocuments(await docRes.json());
-        } catch {}
+        } catch { }
       }
     } catch (err) {
       console.error("Failed to switch session:", err);
@@ -605,7 +605,7 @@ export default function PrismDashboard() {
 
     const currentQuery = queryInput.trim();
     setQueryInput("");
-    
+
     // Add user message
     setMessages(prev => [...prev, { role: "user", content: currentQuery }]);
     setIsQuerying(true);
@@ -613,7 +613,7 @@ export default function PrismDashboard() {
     try {
       const res = await fetch(`${apiBaseUrl}/api/query`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
@@ -722,11 +722,10 @@ export default function PrismDashboard() {
                   <div
                     key={s.id}
                     onClick={() => renamingSessionId === s.id ? undefined : handleSwitchSession(s.id)}
-                    className={`group relative flex items-center justify-between px-3 py-2 rounded-xl transition ${
-                      s.id === activeSessionId
-                        ? "bg-zinc-200/80 dark:bg-[#212328] text-zinc-900 dark:text-white font-medium shadow-2xs"
-                        : "hover:bg-zinc-200/60 dark:hover:bg-[#1E1F24] text-zinc-700 dark:text-zinc-300"
-                    } cursor-pointer`}
+                    className={`group relative flex items-center justify-between px-3 py-2 rounded-xl transition ${s.id === activeSessionId
+                      ? "bg-zinc-200/80 dark:bg-[#212328] text-zinc-900 dark:text-white font-medium shadow-2xs"
+                      : "hover:bg-zinc-200/60 dark:hover:bg-[#1E1F24] text-zinc-700 dark:text-zinc-300"
+                      } cursor-pointer`}
                   >
                     {renamingSessionId === s.id ? (
                       <div className="flex items-center space-x-1 flex-1" onClick={e => e.stopPropagation()}>
@@ -830,75 +829,100 @@ export default function PrismDashboard() {
               {documents.length === 0 ? (
                 <div className="px-3 py-2 text-xs text-zinc-400 dark:text-zinc-500 italic">No documents uploaded yet</div>
               ) : (
-                (showAllProjects ? documents : documents.slice(0, 5)).map((doc) => (
-                  <div
-                    key={doc.id}
-                    onClick={() => doc.status === "completed" && toggleDocSelection(doc.id)}
-                    className={`group relative flex items-center justify-between px-3 py-2 rounded-xl transition ${
-                      selectedDocIds.includes(doc.id)
-                        ? "bg-emerald-100/70 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 font-medium"
-                        : "hover:bg-zinc-200/60 dark:hover:bg-[#212328] text-zinc-700 dark:text-zinc-300"
-                    } ${doc.status === "completed" ? "cursor-pointer" : "cursor-default"}`}
-                  >
-                    <div className="flex items-center space-x-2 truncate flex-1 min-w-0 mr-2">
-                      <Folder className="h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-400 group-hover:text-emerald-500 transition" />
-                      {renamingDocId === doc.id ? (
-                        <div className="flex items-center space-x-1 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
-                          <input
-                            autoFocus
-                            value={renameValue}
-                            onChange={e => setRenameValue(e.target.value)}
-                            onKeyDown={e => { if (e.key === "Enter") handleRenameDoc(doc.id); if (e.key === "Escape") setRenamingDocId(null); }}
-                            className="w-full text-xs px-2 py-0.5 rounded border border-emerald-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white outline-none"
-                          />
-                          <button onClick={() => handleRenameDoc(doc.id)} className="text-emerald-500 hover:text-emerald-400 p-0.5"><Check className="h-3.5 w-3.5" /></button>
-                          <button onClick={() => setRenamingDocId(null)} className="text-zinc-400 hover:text-red-400 p-0.5"><X className="h-3.5 w-3.5" /></button>
+                (showAllProjects ? documents : documents.slice(0, 5)).map((doc) => {
+                  const isProcessing = doc.status.startsWith("processing") || doc.status === "pending";
+                  const statusLabel = isProcessing
+                    ? (doc.status.startsWith("processing:") ? doc.status.replace("processing:", "") : "Embedding vector DB...")
+                    : null;
+
+                  return (
+                    <div
+                      key={doc.id}
+                      onClick={() => doc.status === "completed" && toggleDocSelection(doc.id)}
+                      className={`group relative flex flex-col px-3 py-2 rounded-xl transition ${selectedDocIds.includes(doc.id)
+                          ? "bg-emerald-100/70 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 font-medium"
+                          : "hover:bg-zinc-200/60 dark:hover:bg-[#212328] text-zinc-700 dark:text-zinc-300"
+                        } ${doc.status === "completed" ? "cursor-pointer" : "cursor-default"}`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center space-x-2 truncate flex-1 min-w-0 mr-2">
+                          {isProcessing ? (
+                            <Loader2 className="h-4 w-4 shrink-0 text-emerald-500 animate-spin" />
+                          ) : (
+                            <Folder className="h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-400 group-hover:text-emerald-500 transition" />
+                          )}
+                          {renamingDocId === doc.id ? (
+                            <div className="flex items-center space-x-1 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
+                              <input
+                                autoFocus
+                                value={renameValue}
+                                onChange={e => setRenameValue(e.target.value)}
+                                onKeyDown={e => { if (e.key === "Enter") handleRenameDoc(doc.id); if (e.key === "Escape") setRenamingDocId(null); }}
+                                className="w-full text-xs px-2 py-0.5 rounded border border-emerald-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white outline-none"
+                              />
+                              <button onClick={() => handleRenameDoc(doc.id)} className="text-emerald-500 hover:text-emerald-400 p-0.5"><Check className="h-3.5 w-3.5" /></button>
+                              <button onClick={() => setRenamingDocId(null)} className="text-zinc-400 hover:text-red-400 p-0.5"><X className="h-3.5 w-3.5" /></button>
+                            </div>
+                          ) : (
+                            <span className="text-xs truncate font-medium">{doc.name}</span>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-xs truncate font-medium">{doc.name}</span>
+
+                        {/* Action Buttons on Hover */}
+                        {renamingDocId !== doc.id && (
+                          <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition shrink-0">
+                            {doc.status === "completed" && (
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setViewingDoc({ id: doc.id, name: doc.name });
+                                }}
+                                className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/60 rounded text-zinc-400 hover:text-emerald-500 transition"
+                                title="View PDF"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                setRenamingDocId(doc.id);
+                                setRenameValue(doc.name);
+                              }}
+                              className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/60 rounded text-zinc-400 hover:text-blue-500 transition"
+                              title="Rename document"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                setDeleteModal({ type: "doc", id: doc.id, name: doc.name });
+                              }}
+                              className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/60 rounded text-zinc-400 hover:text-red-500 transition"
+                              title="Delete document"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Loading & Embedding Progress Bar */}
+                      {isProcessing && (
+                        <div className="w-full mt-1.5 space-y-1 pl-6">
+                          <div className="flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">
+                            <span className="truncate">{statusLabel}</span>
+                            <span className="animate-pulse shrink-0 ml-1">embedding...</span>
+                          </div>
+                          <div className="w-full h-1 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 rounded-full animate-pulse w-full transition-all duration-300" />
+                          </div>
+                        </div>
                       )}
                     </div>
-
-                    {/* Action Buttons on Hover */}
-                    {renamingDocId !== doc.id && (
-                      <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition shrink-0">
-                        {doc.status === "completed" && (
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              setViewingDoc({ id: doc.id, name: doc.name });
-                            }}
-                            className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/60 rounded text-zinc-400 hover:text-emerald-500 transition"
-                            title="View PDF"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            setRenamingDocId(doc.id);
-                            setRenameValue(doc.name);
-                          }}
-                          className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/60 rounded text-zinc-400 hover:text-blue-500 transition"
-                          title="Rename document"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            setDeleteModal({ type: "doc", id: doc.id, name: doc.name });
-                          }}
-                          className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/60 rounded text-zinc-400 hover:text-red-500 transition"
-                          title="Delete document"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))
+                  );
+                })
               )}
 
               {documents.length > 5 && !showAllProjects && (
@@ -928,7 +952,6 @@ export default function PrismDashboard() {
                 {user?.displayName || user?.email?.split("@")[0].toUpperCase() || "SARTHAK MEHRA"}
               </span>
               <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
-                Go
               </span>
             </div>
           </div>
@@ -1082,7 +1105,7 @@ export default function PrismDashboard() {
                   </button>
                 </div>
               )}
-              <button 
+              <button
                 type="button"
                 onClick={toggleTheme}
                 className="p-2 rounded-xl bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-900 dark:hover:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 transition"
@@ -1109,13 +1132,13 @@ export default function PrismDashboard() {
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3 w-full max-w-md pt-4">
-                <button 
+                <button
                   onClick={() => setQueryInput("Summary of the uploaded document")}
                   className="p-3 text-left rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-[#0E131F] hover:bg-zinc-50 dark:hover:bg-[#131A2A] text-xs text-zinc-700 dark:text-slate-300 transition"
                 >
                   📄 Request a summary
                 </button>
-                <button 
+                <button
                   onClick={() => setQueryInput("List any tabular data or key results")}
                   className="p-3 text-left rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-[#0E131F] hover:bg-zinc-50 dark:hover:bg-[#131A2A] text-xs text-zinc-700 dark:text-slate-300 transition"
                 >
@@ -1126,14 +1149,14 @@ export default function PrismDashboard() {
           ) : (
             <div className="max-w-3xl mx-auto space-y-6">
               {messages.map((msg, idx) => (
-                <div 
-                  key={idx} 
+                <div
+                  key={idx}
                   className={`flex flex-col space-y-2 ${msg.role === "user" ? "items-end" : "items-start"}`}
                 >
                   {/* Message Bubble */}
                   <div className={`group relative p-4 rounded-2xl max-w-[85%] text-sm leading-relaxed border shadow-sm
-                    ${msg.role === "user" 
-                      ? "bg-emerald-600/90 border-emerald-500/50 text-white rounded-br-none" 
+                    ${msg.role === "user"
+                      ? "bg-emerald-600/90 border-emerald-500/50 text-white rounded-br-none"
                       : "bg-white dark:bg-[#0E131F] border-zinc-200 dark:border-slate-800 rounded-bl-none text-zinc-800 dark:text-slate-200"}`}
                   >
                     <div className="whitespace-pre-wrap">{msg.content}</div>
@@ -1151,7 +1174,7 @@ export default function PrismDashboard() {
                   {msg.role === "assistant" && msg.citations && msg.citations.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 pt-1 px-1">
                       {msg.citations.map((cite, cIdx) => (
-                        <div 
+                        <div
                           key={cIdx}
                           onClick={() => {
                             if (cite.document_id) {
@@ -1181,7 +1204,7 @@ export default function PrismDashboard() {
                   )}
                 </div>
               ))}
-              
+
               {/* Querying Loader */}
               {isQuerying && (
                 <div className="flex items-start space-x-3 max-w-[85%]">
@@ -1191,7 +1214,7 @@ export default function PrismDashboard() {
                   </div>
                 </div>
               )}
-              
+
               <div ref={chatEndRef} />
             </div>
           )}
@@ -1200,7 +1223,7 @@ export default function PrismDashboard() {
         {/* Input Bar */}
         <footer className="p-6 border-t border-zinc-200 dark:border-[#1E293B] bg-white dark:bg-[#0E131F] shrink-0">
           <form onSubmit={handleQuery} className="max-w-3xl mx-auto flex items-center space-x-3">
-            <input 
+            <input
               type="text"
               value={queryInput}
               onChange={(e) => setQueryInput(e.target.value)}
@@ -1208,7 +1231,7 @@ export default function PrismDashboard() {
               className="flex-1 bg-zinc-50 dark:bg-[#080B11] border border-zinc-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-500 transition text-zinc-900 dark:text-slate-200 placeholder-zinc-400 dark:placeholder-slate-500"
               disabled={isQuerying}
             />
-            <button 
+            <button
               type="submit"
               disabled={!queryInput.trim() || isQuerying}
               className={`p-3 rounded-xl bg-emerald-600 bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-medium shadow-md transition duration-200 flex items-center justify-center
@@ -1233,7 +1256,7 @@ export default function PrismDashboard() {
                 </span>
               )}
             </div>
-            <button 
+            <button
               onClick={() => setViewingDoc(null)}
               className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-zinc-200/80 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition font-semibold text-xs border border-zinc-300 dark:border-zinc-700 shadow-2xs shrink-0 group"
               title="Close PDF viewer"
@@ -1243,8 +1266,8 @@ export default function PrismDashboard() {
             </button>
           </div>
           <div className="flex-1 bg-zinc-100 dark:bg-zinc-950 relative">
-            <iframe 
-              src={`${apiBaseUrl}/api/documents/${viewingDoc.id}/file?token=${token}${viewingDoc.page ? `#page=${viewingDoc.page}` : ""}`} 
+            <iframe
+              src={`${apiBaseUrl}/api/documents/${viewingDoc.id}/file?token=${token}${viewingDoc.page ? `#page=${viewingDoc.page}` : ""}`}
               className="w-full h-full border-none"
               title="Document Viewer"
             />

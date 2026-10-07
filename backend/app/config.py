@@ -1,19 +1,43 @@
+import os
 from pydantic_settings import BaseSettings
-from pydantic import Field
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = Field("postgresql://postgres:postgres@prism-db:5432/prism", env="DATABASE_URL")
-    NVIDIA_API_KEY: str = Field("", env="NVIDIA_API_KEY")
-    NVIDIA_BASE_URL: str = Field("https://integrate.api.nvidia.com/v1", env="NVIDIA_BASE_URL")
-    NVIDIA_MODEL: str = Field("meta/llama-3.1-8b-instruct", env="NVIDIA_MODEL")
-    NVIDIA_VISION_MODEL: str = Field("meta/llama-3.2-11b-vision-instruct", env="NVIDIA_VISION_MODEL")
-    
-    # Caches
-    HF_HOME: str = Field("/cache/huggingface", env="HF_HOME")
-    DOCLING_MODELS_CACHE: str = Field("/cache/docling", env="DOCLING_MODELS_CACHE")
+    NVIDIA_API_KEY: str = ""
+    NVIDIA_BASE_URL: str = "https://integrate.api.nvidia.com/v1"
+    NVIDIA_MODEL: str = "meta/llama-3.2-11b-vision-instruct"
+    NVIDIA_VISION_MODEL: str = "meta/llama-3.2-11b-vision-instruct"
+
+    # Optional database URL (if using remote Postgres/Supabase)
+    DATABASE_URL: str = ""
+
+    # Storage directory: if DATA_DIR is set (e.g. /data on a persistent volume), all state lives there
+    DATA_DIR: str = os.getenv("DATA_DIR", "")
+
+    # Local cache paths for fastembed ONNX model download
+    FASTEMBED_CACHE: str = os.getenv("FASTEMBED_CACHE", os.path.join(os.path.expanduser("~"), ".cache", "fastembed"))
+
+    @property
+    def sqlite_db_path(self) -> str:
+        target_dir = self.DATA_DIR if self.DATA_DIR else BASE_DIR
+        return os.path.join(target_dir, "prism_local.db")
+
+    @property
+    def chroma_store_path(self) -> str:
+        target_dir = self.DATA_DIR if self.DATA_DIR else BASE_DIR
+        return os.path.join(target_dir, "chroma_store")
+
+    @property
+    def uploads_path(self) -> str:
+        target_dir = self.DATA_DIR if self.DATA_DIR else BASE_DIR
+        return os.path.join(target_dir, "uploads")
 
     class Config:
         env_file = ".env"
         extra = "ignore"
 
+
 settings = Settings()
+

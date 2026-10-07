@@ -1,3 +1,4 @@
+import os
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -6,19 +7,17 @@ import logging
 
 logger = logging.getLogger("prism.db")
 
-db_url = settings.DATABASE_URL
-connect_args = {}
-if "supabase" in db_url.lower() and "sslmode" not in db_url.lower():
-    connect_args["sslmode"] = "require"
+# Ensure target database directory exists
+os.makedirs(os.path.dirname(settings.sqlite_db_path), exist_ok=True)
+DATABASE_URL = f"sqlite:///{settings.sqlite_db_path}"
 
 engine = create_engine(
-    db_url,
-    connect_args=connect_args,
-    pool_pre_ping=True,
-    pool_recycle=300
+    DATABASE_URL,
+    connect_args={"check_same_thread": False},
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
 
 def get_db():
     db = SessionLocal()
@@ -27,34 +26,26 @@ def get_db():
     finally:
         db.close()
 
-def init_db():
-    """Initializes the database, creating the pgvector extension and all tables."""
-    try:
-        # Create vector extension
-        with engine.begin() as conn:
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-            logger.info("pgvector extension verified/created.")
-            
-        # Create tables
-        import app.models
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables created successfully.")
-        
-        # Add user_uid column if it does not exist (migration) and full-text search index
-        with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS user_uid VARCHAR;"))
-            logger.info("Checked/Added user_uid column to documents table.")
 
-            conn.execute(text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS session_id VARCHAR;"))
-            logger.info("Checked/Added session_id column to documents table.")
-            
-            # Check if index exists or create it
-            conn.execute(text("""
-                CREATE INDEX IF NOT EXISTS chunk_fts_idx ON document_chunks 
-                USING gin(to_tsvector('english', content));
-            """))
-            logger.info("Full-text search index verified/created.")
-            
+def init_db():
+    """Initializes the SQLite database, creating all tables."""
+    try:
+        import app.models  # noqa: F401 – registers all ORM models
+        Base.metadata.create_all(bind=engine)
+        logger.info("SQLite database tables created/verified successfully.")
+
+        # Migration: add chroma_id column if it doesn't exist (safe to run repeatedly)
+        with engine.begin() as conn:
+            existing = [
+                row[1]
+                for row in conn.execute(
+                    text("PRAGMA table_info(document_chunks)")
+                ).fetchall()
+            ]
+            if "chroma_id" not in existing:
+                conn.execute(
+                    text("ALTER TABLE document_chunks ADD COLUMN chroma_id VARCHAR")
+                )
+                logger.info("Migration: added chroma_id column to document_chunks.")
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
-        # Log error instead of crashing container startup

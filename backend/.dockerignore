@@ -4,3 +4,8 @@ __pycache__/
 .gitignore
 .dockerignore
 tests/
+chroma_store/
+*.db
+uploads/
+*.log
+tb.txt

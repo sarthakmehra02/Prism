@@ -14,6 +14,11 @@ __pycache__/
 *$py.class
 backend/uploads/*
 !backend/uploads/.gitkeep
+backend/chroma_store/
+*.db
+backend/prism_local.db
+backend/tb.txt
+backend/traceback.log
 .venv/
 env/
 venv/

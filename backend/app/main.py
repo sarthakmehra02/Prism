@@ -14,6 +14,7 @@ from app.embeddings import EmbeddingClient
 from app.retriever import HybridRetriever
 from app.generator import AnswerGenerator
 from app.auth import get_current_user
+from app import vectorstore
 import firebase_admin
 
 # Setup logging
@@ -35,8 +36,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+from app.config import settings
 
-UPLOAD_DIR = "/app/uploads"
+UPLOAD_DIR = settings.uploads_path
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Run database schema migration on startup
@@ -143,10 +145,10 @@ def process_document_task(document_id: int, file_path: str):
         embedding_client = EmbeddingClient()
         contents = [c["content"] for c in chunks_data]
         embeddings = embedding_client.embed_texts(contents)
-        
-        # 3. Create Chunk models and save
+
+        # 3. Save chunks to SQLite (without embedding column)
         db_chunks = []
-        for chunk_data, emb in zip(chunks_data, embeddings):
+        for chunk_data in chunks_data:
             db_chunk = DocumentChunk(
                 document_id=document_id,
                 content=chunk_data["content"],
@@ -154,12 +156,34 @@ def process_document_task(document_id: int, file_path: str):
                 section_heading=chunk_data["section_heading"],
                 bbox=chunk_data["bbox"],
                 chunk_type=chunk_data["chunk_type"],
-                embedding=emb,
                 meta=chunk_data["meta"]
             )
             db_chunks.append(db_chunk)
-            
+
         db.add_all(db_chunks)
+        db.flush()  # populate chunk IDs before ChromaDB upsert
+
+        # 4. Upsert embeddings into ChromaDB
+        import uuid as _uuid
+        chroma_ids = [str(_uuid.uuid4()) for _ in db_chunks]
+        metadatas = [
+            {
+                "chunk_id": chunk.id,
+                "document_id": document_id,
+                "user_uid": doc.user_uid or "",
+            }
+            for chunk in db_chunks
+        ]
+        vectorstore.add_chunks(
+            chroma_ids=chroma_ids,
+            embeddings=embeddings,
+            documents=contents,
+            metadatas=metadatas,
+        )
+        # Store chroma_id on each chunk for future reference
+        for chunk, cid in zip(db_chunks, chroma_ids):
+            chunk.chroma_id = cid
+
         doc.status = "completed"
         db.commit()
         logger.info(f"Ingestion successful for document: {doc.name}. Chunks added: {len(db_chunks)}")
@@ -254,6 +278,26 @@ def list_documents(
         }
         for d in docs
     ]
+
+@app.get("/api/documents/{document_id}")
+def get_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    doc = db.query(Document).filter(
+        Document.id == document_id,
+        (Document.user_uid == current_user["uid"]) | (Document.user_uid == None)
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found or access denied")
+    return {
+        "id": doc.id,
+        "name": doc.name,
+        "status": doc.status,
+        "uploaded_at": doc.uploaded_at,
+        "chunk_count": db.query(DocumentChunk).filter(DocumentChunk.document_id == doc.id).count()
+    }
 
 @app.delete("/api/documents/{document_id}")
 def delete_document(
@@ -392,7 +436,8 @@ def reprocess_document(
     if not os.path.exists(doc.file_path):
         raise HTTPException(status_code=404, detail="Original file not found on disk; cannot reprocess")
 
-    # Wipe old chunks
+    # Wipe old chunks from SQLite and ChromaDB
+    vectorstore.delete_chunks_by_document(document_id)
     db.query(DocumentChunk).filter(DocumentChunk.document_id == document_id).delete()
     doc.status = "processing"
     db.commit()
