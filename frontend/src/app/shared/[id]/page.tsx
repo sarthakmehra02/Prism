@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Sparkles, Loader2, AlertCircle } from "lucide-react";
+import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 
 interface Message {
   role: "user" | "assistant";
@@ -106,13 +107,17 @@ export default function SharedSessionPage({ params }: { params: { id: string } }
                     </div>
                   )}
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                       msg.role === "user"
-                        ? "bg-emerald-700 text-white rounded-br-sm"
+                        ? "bg-emerald-700 text-white rounded-br-sm whitespace-pre-wrap"
                         : "bg-[#111622] border border-[#1E293B] text-slate-200 rounded-bl-sm"
                     }`}
                   >
-                    {msg.content}
+                    {msg.role === "assistant" ? (
+                      <MarkdownRenderer content={msg.content} />
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                 </div>
               ))}

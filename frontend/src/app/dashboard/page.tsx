@@ -38,6 +38,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 
 interface DocumentItem {
   id: number;
@@ -1159,7 +1160,11 @@ export default function PrismDashboard() {
                       ? "bg-emerald-600/90 border-emerald-500/50 text-white rounded-br-none"
                       : "bg-white dark:bg-[#0E131F] border-zinc-200 dark:border-slate-800 rounded-bl-none text-zinc-800 dark:text-slate-200"}`}
                   >
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    {msg.role === "assistant" ? (
+                      <MarkdownRenderer content={msg.content} />
+                    ) : (
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    )}
                   </div>
 
                   {/* Warning message if citation check failed */}
