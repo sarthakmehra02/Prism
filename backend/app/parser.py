@@ -34,7 +34,7 @@ class DocumentParser:
             from openai import OpenAI
             self.openai_client = OpenAI(
                 base_url=settings.NVIDIA_BASE_URL,
-                api_key=settings.NVIDIA_API_KEY,
+                api_key=settings.clean_nvidia_api_key or "missing-key",
             )
         return self.openai_client
 
@@ -48,6 +48,8 @@ class DocumentParser:
         page_number: int,
     ) -> str:
         """Crop a region from the page and send it to the NVIDIA vision model."""
+        if not settings.clean_nvidia_api_key:
+            return caption or f"Figure on page {page_number}"
         try:
             import fitz  # PyMuPDF
             if clip_rect and not clip_rect.is_empty and clip_rect.width > 10 and clip_rect.height > 10:

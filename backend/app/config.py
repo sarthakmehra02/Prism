@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     NVIDIA_MODEL: str = "meta/llama-3.2-11b-vision-instruct"
     NVIDIA_VISION_MODEL: str = "meta/llama-3.2-11b-vision-instruct"
 
+    @property
+    def clean_nvidia_api_key(self) -> str:
+        return (self.NVIDIA_API_KEY or "").strip().strip("'\"")
+
     # Optional database URL (if using remote Postgres/Supabase)
     DATABASE_URL: str = ""
 
